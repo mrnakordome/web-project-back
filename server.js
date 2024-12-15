@@ -40,6 +40,26 @@ app.post('/login', (req, res) => {
   res.status(401).json({ error: 'Invalid username or password' });
 });
 
+/* ------------------- GET: Leaderboard ------------------- */
+app.get('/leaderboard', (req, res) => {
+  // Combine users and admins into a single leaderboard if needed
+  const leaderboard = [
+    ...userMocks.map((user) => ({
+      id: user.id,
+      username: user.username,
+      role: 'user',
+      points: user.points || 0, // Rank users by points
+      score: user.score || 0,   // Optional score for users
+    })),
+  ];
+
+  // Sort leaderboard by points in descending order
+  leaderboard.sort((a, b) => b.points - a.points);
+
+  res.json({ leaderboard });
+});
+
+
 /* ------------------- POST: Register ------------------- */
 app.post('/register', (req, res) => {
   const { username, password, role } = req.body;
@@ -48,6 +68,7 @@ app.post('/register', (req, res) => {
     return res.status(400).json({ error: 'All fields are required.' });
   }
 
+  // Check if the username already exists
   if (role === 'user' && userMocks.some((u) => u.username === username)) {
     return res.status(400).json({ error: 'Username already exists.' });
   }
@@ -60,7 +81,7 @@ app.post('/register', (req, res) => {
     username,
     password,
     role,
-    followers: 0,
+    followers: [], // Initialize as an empty array
     followin: 0,
     points: 0,
     questions: [],
@@ -74,6 +95,30 @@ app.post('/register', (req, res) => {
 
   res.status(201).json({ message: 'Registration successful!' });
 });
+
+/* ------------------- POST: Follow User/Admin ------------------- */
+app.post('/follow', (req, res) => {
+  const { followerId, followingId, role } = req.body;
+
+  // Validate the IDs
+  const follower = (role === 'admin' ? adminMocks : userMocks).find((u) => u.id === followerId);
+  const following =
+    adminMocks.find((a) => a.id === followingId) ||
+    userMocks.find((u) => u.id === followingId);
+
+  if (!follower || !following) {
+    return res.status(404).json({ error: 'User or Admin not found.' });
+  }
+
+  // Avoid duplicate follows
+  if (!following.followers.includes(followerId)) {
+    following.followers.push(followerId);
+    return res.status(200).json({ message: 'Followed successfully!', following });
+  } else {
+    return res.status(400).json({ error: 'Already following this user/admin.' });
+  }
+});
+
 
 /* ------------------- GET: Categories ------------------- */
 app.get('/categories', (req, res) => {
@@ -130,7 +175,7 @@ app.get('/admin/:id', (req, res) => {
     res.json({
       id: admin.id,
       username: admin.username,
-      followers: admin.followers,
+      followers: admin.followers, // Return followers
       followin: admin.followin,
       questions: adminQuestions,
     });
@@ -138,6 +183,7 @@ app.get('/admin/:id', (req, res) => {
     res.status(404).json({ error: 'Admin not found' });
   }
 });
+
 
 /* ------------------- GET: User Details ------------------- */
 app.get('/user/:id', (req, res) => {
@@ -148,13 +194,14 @@ app.get('/user/:id', (req, res) => {
     res.json({
       id: user.id,
       username: user.username,
-      followers: user.followers,
+      followers: user.followers, // Return followers
       following: user.points,
     });
   } else {
     res.status(404).json({ error: 'User not found' });
   }
 });
+
 
 /* ------------------- GET: Random Unanswered Question ------------------- */
 app.get('/user/:id/questions/random', (req, res) => {

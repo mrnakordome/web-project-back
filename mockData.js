@@ -6,7 +6,7 @@ const adminMocks = [
     role: 'admin',
     adminLevel: 1,
     followin: 10,
-    followers: 100,
+    followers: [2], // IDs of followers (users or admins)
     questions: [5, 6],
   },
   {
@@ -16,7 +16,7 @@ const adminMocks = [
     role: 'admin',
     adminLevel: 2,
     followin: 20,
-    followers: 150,
+    followers: [1], // IDs of followers (users or admins)
     questions: [7, 8],
   },
 ];
@@ -28,7 +28,7 @@ const userMocks = [
     password: '1',
     role: 'user',
     points: 50,
-    followers: 120,
+    followers: [2], // IDs of followers (other users or admins)
     score: 1000,
     questions: [
       { questionId: 5, userAnswer: 'A' },
@@ -41,7 +41,7 @@ const userMocks = [
     password: '1',
     role: 'user',
     points: 30,
-    followers: 80,
+    followers: [], // No followers yet
     score: 800,
     questions: [
       { questionId: 7, userAnswer: 'C' },
@@ -60,10 +60,38 @@ const categoriesMock = [
 ];
 
 const questionsMock = [
-  { id: 5, test: 'What is gravity?', options: { A: 'Force of attraction', B: 'Magnetic force', C: 'Electric force', D: 'Friction' }, correctAnswer: 'A', categoryId: 3, difficulty: 3.5 },
-  { id: 6, test: 'What is acceleration?', options: { A: 'Rate of speed', B: 'Rate of velocity change', C: 'Speed', D: 'Position' }, correctAnswer: 'B', categoryId: 3, difficulty: 4.0 },
-  { id: 7, test: 'What is H2O?', options: { A: 'Oxygen', B: 'Nitrogen', C: 'Water', D: 'Helium' }, correctAnswer: 'C', categoryId: 4, difficulty: 2.0 },
-  { id: 8, test: 'What is an acid?', options: { A: 'Neutral substance', B: 'Donor of protons', C: 'Accepts electrons', D: 'Reduces metals' }, correctAnswer: 'B', categoryId: 4, difficulty: 3.5 },
+  {
+    id: 5,
+    test: 'What is gravity?',
+    options: { A: 'Force of attraction', B: 'Magnetic force', C: 'Electric force', D: 'Friction' },
+    correctAnswer: 'A',
+    categoryId: 3,
+    difficulty: 3.5,
+  },
+  {
+    id: 6,
+    test: 'What is acceleration?',
+    options: { A: 'Rate of speed', B: 'Rate of velocity change', C: 'Speed', D: 'Position' },
+    correctAnswer: 'B',
+    categoryId: 3,
+    difficulty: 4.0,
+  },
+  {
+    id: 7,
+    test: 'What is H2O?',
+    options: { A: 'Oxygen', B: 'Nitrogen', C: 'Water', D: 'Helium' },
+    correctAnswer: 'C',
+    categoryId: 4,
+    difficulty: 2.0,
+  },
+  {
+    id: 8,
+    test: 'What is an acid?',
+    options: { A: 'Neutral substance', B: 'Donor of protons', C: 'Accepts electrons', D: 'Reduces metals' },
+    correctAnswer: 'B',
+    categoryId: 4,
+    difficulty: 3.5,
+  },
 ];
 
 module.exports = { adminMocks, userMocks, categoriesMock, questionsMock };
