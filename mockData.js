@@ -5,7 +5,7 @@ const adminMocks = [
     password: '1',
     role: 'admin',
     adminLevel: 1,
-    followin: 10,
+    followin: 0,
     followers: [2], // IDs of followers (users or admins)
     questions: [5, 6],
   },
@@ -15,7 +15,7 @@ const adminMocks = [
     password: '1',
     role: 'admin',
     adminLevel: 2,
-    followin: 20,
+    followin: 0,
     followers: [1], // IDs of followers (users or admins)
     questions: [7, 8],
   },
@@ -27,9 +27,9 @@ const userMocks = [
     username: 'user1',
     password: '1',
     role: 'user',
-    points: 50,
+    points: 12,
     followers: [2], // IDs of followers (other users or admins)
-    score: 1000,
+    score: 7.5,
     questions: [
       { questionId: 5, userAnswer: 'A' },
       { questionId: 6, userAnswer: 'B' },
@@ -40,9 +40,9 @@ const userMocks = [
     username: 'user2',
     password: '1',
     role: 'user',
-    points: 30,
+    points: 123,
     followers: [], // No followers yet
-    score: 800,
+    score: 5.5,
     questions: [
       { questionId: 7, userAnswer: 'C' },
       { questionId: 8, userAnswer: 'B' },

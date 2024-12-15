@@ -15,7 +15,7 @@ app.post('/login', (req, res) => {
 
   if (role === 'admin') {
     const admin = adminMocks.find(
-      (a) => a.username === username && a.password === password && a.role === role
+      (a) => a.username === username && a.password === password
     );
     if (admin) {
       return res.json({
@@ -27,7 +27,7 @@ app.post('/login', (req, res) => {
     }
   } else if (role === 'user') {
     const user = userMocks.find(
-      (u) => u.username === username && u.password === password && u.role === role
+      (u) => u.username === username && u.password === password
     );
     if (user) {
       return res.json({
@@ -42,22 +42,13 @@ app.post('/login', (req, res) => {
 
 /* ------------------- GET: Leaderboard ------------------- */
 app.get('/leaderboard', (req, res) => {
-  // Combine users and admins into a single leaderboard if needed
-  const leaderboard = [
-    ...userMocks.map((user) => ({
-      id: user.id,
-      username: user.username,
-      role: 'user',
-      points: user.points || 0, // Rank users by points
-      score: user.score || 0,   // Optional score for users
-    })),
-  ];
-
-  // Sort leaderboard by points in descending order
-  leaderboard.sort((a, b) => b.points - a.points);
+  const leaderboard = userMocks
+    .map((user) => ({ id: user.id, username: user.username, score: user.points }))
+    .sort((a, b) => b.score - a.score);
 
   res.json({ leaderboard });
 });
+
 
 
 /* ------------------- POST: Register ------------------- */
@@ -100,24 +91,24 @@ app.post('/register', (req, res) => {
 app.post('/follow', (req, res) => {
   const { followerId, followingId, role } = req.body;
 
-  // Validate the IDs
-  const follower = (role === 'admin' ? adminMocks : userMocks).find((u) => u.id === followerId);
-  const following =
-    adminMocks.find((a) => a.id === followingId) ||
-    userMocks.find((u) => u.id === followingId);
+  const follower = userMocks.find((u) => u.id === followerId);
+  const following = role === 'user'
+    ? userMocks.find((u) => u.id === followingId)
+    : adminMocks.find((a) => a.id === followingId);
 
   if (!follower || !following) {
     return res.status(404).json({ error: 'User or Admin not found.' });
   }
 
-  // Avoid duplicate follows
   if (!following.followers.includes(followerId)) {
     following.followers.push(followerId);
-    return res.status(200).json({ message: 'Followed successfully!', following });
+    follower.points += 1; // Increase points for the follower
+    return res.status(200).json({ message: 'Followed successfully!' });
   } else {
     return res.status(400).json({ error: 'Already following this user/admin.' });
   }
 });
+
 
 
 /* ------------------- GET: Categories ------------------- */
@@ -175,7 +166,7 @@ app.get('/admin/:id', (req, res) => {
     res.json({
       id: admin.id,
       username: admin.username,
-      followers: admin.followers, // Return followers
+      followers: admin.followers.length, // Return the count of followers
       followin: admin.followin,
       questions: adminQuestions,
     });
@@ -183,6 +174,7 @@ app.get('/admin/:id', (req, res) => {
     res.status(404).json({ error: 'Admin not found' });
   }
 });
+
 
 
 /* ------------------- GET: User Details ------------------- */
@@ -194,13 +186,14 @@ app.get('/user/:id', (req, res) => {
     res.json({
       id: user.id,
       username: user.username,
-      followers: user.followers, // Return followers
+      followers: user.followers.length, // Return the count of followers
       following: user.points,
     });
   } else {
     res.status(404).json({ error: 'User not found' });
   }
 });
+
 
 
 /* ------------------- GET: Random Unanswered Question ------------------- */
@@ -233,19 +226,40 @@ app.post('/user/:id/questions/answer', (req, res) => {
   const { questionId, userAnswer } = req.body;
 
   const user = userMocks.find((u) => u.id === userId);
+  const question = questionsMock.find((q) => q.id === questionId);
+
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  if (!question) return res.status(404).json({ error: 'Question not found.' });
+
+  if (question.correctAnswer === userAnswer) {
+    user.points += question.difficulty;
+    return res.json({ message: 'Correct answer!', points: user.points });
+  } else {
+    return res.json({ message: 'Wrong answer.' });
+  }
+});
+
+
+/* ------------------- GET: Search User by Username ------------------- */
+app.get('/search/user', (req, res) => {
+  const { username } = req.query; // Query parameter
+  const user = userMocks.find((u) => u.username === username);
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
   }
-
-  const question = questionsMock.find((q) => q.id === questionId);
-  if (!question) {
-    return res.status(404).json({ error: 'Question not found' });
-  }
-
-  user.questions.push({ questionId, userAnswer });
-
-  res.status(200).json({ message: 'Answer submitted successfully!' });
+  res.status(200).json(user);
 });
+
+/* ------------------- GET: Search Admin by Username ------------------- */
+app.get('/search/admin', (req, res) => {
+  const { username } = req.query; // Query parameter
+  const admin = adminMocks.find((a) => a.username === username);
+  if (!admin) {
+    return res.status(404).json({ error: 'Admin not found' });
+  }
+  res.status(200).json(admin);
+});
+
 
 /* ------------------- GET: User Questions History ------------------- */
 app.get('/user/:id/questions/history', (req, res) => {
