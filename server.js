@@ -62,6 +62,25 @@ app.get('/user/:id', (req, res) => {
   }
 });
 
+app.get('/admin/:id', (req, res) => {
+  const adminId = parseInt(req.params.id, 10);
+  const admin = adminMocks.find(a => a.id === adminId);
+
+  if (admin) {
+    res.json({
+      id: admin.id,
+      username: admin.username,
+      followers: admin.followers,
+      followin: admin.followin,
+      questions: admin.questions,
+      categories: admin.categories,
+    });
+  } else {
+    res.status(404).json({ error: 'Admin not found' });
+  }
+});
+
+
 app.get('/leaderboard', (req, res) => {
   // Sort users by points in descending order
   const sortedUsers = [...userMocks].sort((a, b) => b.points - a.points);
