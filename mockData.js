@@ -7,7 +7,7 @@ const adminMocks = [
     adminLevel: 1,
     followin: 10,
     followers: 100,
-    questions: [1, 2],
+    questions: [5, 6],
   },
   {
     id: 2,
@@ -17,7 +17,7 @@ const adminMocks = [
     adminLevel: 2,
     followin: 20,
     followers: 150,
-    questions: [3, 4],
+    questions: [7, 8],
   },
 ];
 

@@ -97,6 +97,27 @@ app.post('/categories', (req, res) => {
   res.status(201).json({ message: 'Category added successfully!', category: newCategory });
 });
 
+/* ------------------- GET: Admin Questions ------------------- */
+app.get('/admin/:id/questions', (req, res) => {
+  const adminId = parseInt(req.params.id, 10);
+
+  // Find the admin
+  const admin = adminMocks.find((a) => a.id === adminId);
+  if (!admin) {
+    return res.status(404).json({ error: 'Admin not found.' });
+  }
+
+  // Fetch questions linked to the admin
+  const adminQuestions = admin.questions
+    .map((qId) => questionsMock.find((question) => question.id === qId))
+    .filter((question) => question !== undefined); // Filter out invalid IDs
+
+  // Return the questions
+  res.json({ questions: adminQuestions });
+});
+
+
+
 /* ------------------- GET: Admin Details ------------------- */
 app.get('/admin/:id', (req, res) => {
   const adminId = parseInt(req.params.id, 10);
@@ -202,24 +223,50 @@ app.get('/user/:id/questions/history', (req, res) => {
 
 /* ------------------- POST: Add New Question ------------------- */
 app.post('/questions', (req, res) => {
-  const { test, options, correctAnswer, categoryId, difficulty } = req.body;
+  const { adminId, test, options, correctAnswer, categoryId, difficulty } = req.body;
 
-  const category = categoriesMock.find((c) => c.id === parseInt(categoryId, 10));
-  if (!category) {
-    return res.status(400).json({ error: 'Invalid category ID' });
+  // Validate input fields
+  if (!adminId || !test || !options || !correctAnswer || !categoryId || !difficulty) {
+    return res.status(400).json({ error: 'All fields are required.' });
   }
 
+  // Find the category
+  const category = categoriesMock.find((c) => c.id === parseInt(categoryId, 10));
+  if (!category) {
+    return res.status(400).json({ error: 'Invalid category ID.' });
+  }
+
+  // Generate a new question ID
+  const newQuestionId = questionsMock.length > 0
+    ? Math.max(...questionsMock.map((q) => q.id)) + 1
+    : 1;
+
+  // Create the new question object
   const newQuestion = {
-    id: questionsMock.length + 1,
+    id: newQuestionId,
     test,
     options,
     correctAnswer,
     categoryId: category.id,
-    difficulty,
+    difficulty: parseFloat(difficulty),
   };
 
+  // Add the new question to questionsMock
   questionsMock.push(newQuestion);
-  res.status(201).json({ message: 'Question added successfully!', question: newQuestion });
+
+  // Link the question ID to the admin's question array
+  const admin = adminMocks.find((a) => a.id === parseInt(adminId, 10));
+  if (!admin) {
+    return res.status(404).json({ error: 'Admin not found.' });
+  }
+
+  admin.questions.push(newQuestionId);
+
+  // Send response
+  res.status(201).json({
+    message: 'Question added successfully!',
+    question: newQuestion,
+  });
 });
 
 /* ------------------- SERVER START ------------------- */
