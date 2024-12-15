@@ -62,5 +62,14 @@ app.get('/user/:id', (req, res) => {
   }
 });
 
+app.get('/leaderboard', (req, res) => {
+  // Sort users by points in descending order
+  const sortedUsers = [...userMocks].sort((a, b) => b.points - a.points);
+
+  // Respond with sorted users
+  res.json(sortedUsers);
+});
+
+
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
