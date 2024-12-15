@@ -12,7 +12,6 @@ app.use(cors());
 /* ------------------- POST: Login ------------------- */
 app.post('/login', (req, res) => {
   const { username, password, role } = req.body;
-  console.log('Login Request:', { username, password, role });
 
   if (role === 'admin') {
     const admin = adminMocks.find(
@@ -41,9 +40,61 @@ app.post('/login', (req, res) => {
   res.status(401).json({ error: 'Invalid username or password' });
 });
 
+/* ------------------- POST: Register ------------------- */
+app.post('/register', (req, res) => {
+  const { username, password, role } = req.body;
+
+  if (!username || !password || !role) {
+    return res.status(400).json({ error: 'All fields are required.' });
+  }
+
+  if (role === 'user' && userMocks.some((u) => u.username === username)) {
+    return res.status(400).json({ error: 'Username already exists.' });
+  }
+  if (role === 'admin' && adminMocks.some((a) => a.username === username)) {
+    return res.status(400).json({ error: 'Username already exists.' });
+  }
+
+  const newUser = {
+    id: role === 'user' ? userMocks.length + 1 : adminMocks.length + 1,
+    username,
+    password,
+    role,
+    followers: 0,
+    followin: 0,
+    points: 0,
+    questions: [],
+  };
+
+  if (role === 'user') {
+    userMocks.push(newUser);
+  } else if (role === 'admin') {
+    adminMocks.push(newUser);
+  }
+
+  res.status(201).json({ message: 'Registration successful!' });
+});
+
 /* ------------------- GET: Categories ------------------- */
 app.get('/categories', (req, res) => {
   res.json(categoriesMock);
+});
+
+/* ------------------- POST: Add New Category ------------------- */
+app.post('/categories', (req, res) => {
+  const { name } = req.body;
+
+  if (!name || typeof name !== 'string' || name.trim() === '') {
+    return res.status(400).json({ error: 'Invalid category name' });
+  }
+
+  const newCategory = {
+    id: categoriesMock.length + 1,
+    name: name.trim(),
+  };
+
+  categoriesMock.push(newCategory);
+  res.status(201).json({ message: 'Category added successfully!', category: newCategory });
 });
 
 /* ------------------- GET: Admin Details ------------------- */
@@ -93,10 +144,7 @@ app.get('/user/:id/questions/random', (req, res) => {
     return res.status(404).json({ error: 'User not found' });
   }
 
-  // Get IDs of questions the user has already answered
   const answeredQuestionIds = user.questions.map((q) => q.questionId);
-
-  // Filter questions not yet answered
   const unansweredQuestions = questionsMock.filter(
     (question) => !answeredQuestionIds.includes(question.id)
   );
@@ -105,7 +153,6 @@ app.get('/user/:id/questions/random', (req, res) => {
     return res.status(404).json({ error: 'No unanswered questions available.' });
   }
 
-  // Select a random question
   const randomQuestion =
     unansweredQuestions[Math.floor(Math.random() * unansweredQuestions.length)];
 
@@ -122,13 +169,11 @@ app.post('/user/:id/questions/answer', (req, res) => {
     return res.status(404).json({ error: 'User not found' });
   }
 
-  // Check if the question exists
   const question = questionsMock.find((q) => q.id === questionId);
   if (!question) {
     return res.status(404).json({ error: 'Question not found' });
   }
 
-  // Add the answered question to the user's history
   user.questions.push({ questionId, userAnswer });
 
   res.status(200).json({ message: 'Answer submitted successfully!' });
@@ -155,12 +200,6 @@ app.get('/user/:id/questions/history', (req, res) => {
   }
 });
 
-/* ------------------- GET: Leaderboard ------------------- */
-app.get('/leaderboard', (req, res) => {
-  const sortedUsers = [...userMocks].sort((a, b) => b.points - a.points);
-  res.json(sortedUsers);
-});
-
 /* ------------------- POST: Add New Question ------------------- */
 app.post('/questions', (req, res) => {
   const { test, options, correctAnswer, categoryId, difficulty } = req.body;
@@ -182,43 +221,6 @@ app.post('/questions', (req, res) => {
   questionsMock.push(newQuestion);
   res.status(201).json({ message: 'Question added successfully!', question: newQuestion });
 });
-
-/* ------------------- POST: Register ------------------- */
-app.post('/register', (req, res) => {
-  const { username, password, role } = req.body;
-
-  if (!username || !password || !role) {
-    return res.status(400).json({ error: 'All fields are required.' });
-  }
-
-  // Check for duplicates
-  if (role === 'user' && userMocks.some((u) => u.username === username)) {
-    return res.status(400).json({ error: 'Username already exists.' });
-  }
-  if (role === 'admin' && adminMocks.some((a) => a.username === username)) {
-    return res.status(400).json({ error: 'Username already exists.' });
-  }
-
-  const newUser = {
-    id: role === 'user' ? userMocks.length + 1 : adminMocks.length + 1,
-    username,
-    password,
-    role,
-    followers: 0,
-    followin: 0,
-    points: 0,
-    questions: [],
-  };
-
-  if (role === 'user') {
-    userMocks.push(newUser);
-  } else if (role === 'admin') {
-    adminMocks.push(newUser);
-  }
-
-  res.status(201).json({ message: 'Registration successful!' });
-});
-
 
 /* ------------------- SERVER START ------------------- */
 const PORT = 5000;
