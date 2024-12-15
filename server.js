@@ -183,6 +183,43 @@ app.post('/questions', (req, res) => {
   res.status(201).json({ message: 'Question added successfully!', question: newQuestion });
 });
 
+/* ------------------- POST: Register ------------------- */
+app.post('/register', (req, res) => {
+  const { username, password, role } = req.body;
+
+  if (!username || !password || !role) {
+    return res.status(400).json({ error: 'All fields are required.' });
+  }
+
+  // Check for duplicates
+  if (role === 'user' && userMocks.some((u) => u.username === username)) {
+    return res.status(400).json({ error: 'Username already exists.' });
+  }
+  if (role === 'admin' && adminMocks.some((a) => a.username === username)) {
+    return res.status(400).json({ error: 'Username already exists.' });
+  }
+
+  const newUser = {
+    id: role === 'user' ? userMocks.length + 1 : adminMocks.length + 1,
+    username,
+    password,
+    role,
+    followers: 0,
+    followin: 0,
+    points: 0,
+    questions: [],
+  };
+
+  if (role === 'user') {
+    userMocks.push(newUser);
+  } else if (role === 'admin') {
+    adminMocks.push(newUser);
+  }
+
+  res.status(201).json({ message: 'Registration successful!' });
+});
+
+
 /* ------------------- SERVER START ------------------- */
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
