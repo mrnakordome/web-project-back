@@ -43,29 +43,29 @@ app.post('/login', (req, res) => {
 
 /* ------------------- GET: Categories ------------------- */
 app.get('/categories', (req, res) => {
-  res.json(categoriesMock); // Send categories array
+  res.json(categoriesMock);
 });
 
-// Admin Details Endpoint
+/* ------------------- GET: Admin Details ------------------- */
 app.get('/admin/:id', (req, res) => {
   const adminId = parseInt(req.params.id, 10);
   const admin = adminMocks.find((a) => a.id === adminId);
 
   if (admin) {
+    const adminQuestions = admin.questions.map((qId) =>
+      questionsMock.find((question) => question.id === qId)
+    );
     res.json({
       id: admin.id,
       username: admin.username,
       followers: admin.followers,
-      followin: admin.followin, // Ensure 'followin' is sent
-      questions: admin.questions.map((qId) =>
-        questionsMock.find((question) => question.id === qId)
-      ),
+      followin: admin.followin,
+      questions: adminQuestions,
     });
   } else {
     res.status(404).json({ error: 'Admin not found' });
   }
 });
-
 
 /* ------------------- GET: User Details ------------------- */
 app.get('/user/:id', (req, res) => {
@@ -77,10 +77,7 @@ app.get('/user/:id', (req, res) => {
       id: user.id,
       username: user.username,
       followers: user.followers,
-      following: user.points, // Using points as "following" for now
-      questions: user.question.map((qId) =>
-        questionsMock.find((question) => question.id === qId)
-      ),
+      following: user.points,
     });
   } else {
     res.status(404).json({ error: 'User not found' });
@@ -101,6 +98,28 @@ app.get('/admin/:id/questions', (req, res) => {
     res.status(404).json({ error: 'Admin not found' });
   }
 });
+
+/* ------------------- GET: User Questions History ------------------- */
+app.get('/user/:id/questions/history', (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  const user = userMocks.find((u) => u.id === userId);
+
+  if (user) {
+    const questionHistory = user.questions.map((userQ) => {
+      const question = questionsMock.find((q) => q.id === userQ.questionId);
+      return {
+        questionText: question?.test || 'Unknown Question',
+        userAnswer: userQ.userAnswer || 'N/A',
+        correctAnswer: question?.correctAnswer || 'N/A',
+      };
+    });
+
+    return res.json(questionHistory);
+  } else {
+    return res.status(404).json({ error: 'User not found' });
+  }
+});
+
 
 /* ------------------- GET: Leaderboard ------------------- */
 app.get('/leaderboard', (req, res) => {
