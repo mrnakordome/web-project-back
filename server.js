@@ -3,7 +3,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 
 // Import mock data
-const { adminMocks, userMocks } = require('./mockData');
+const { adminMocks, userMocks , categoriesMock } = require('./mockData');
 
 const app = express();
 app.use(bodyParser.json());
@@ -78,6 +78,21 @@ app.get('/admin/:id', (req, res) => {
   } else {
     res.status(404).json({ error: 'Admin not found' });
   }
+});
+
+app.get('/admin/:id/questions', (req, res) => {
+  const adminId = parseInt(req.params.id, 10);
+  const admin = adminMocks.find(a => a.id === adminId);
+
+  if (admin) {
+    res.json({ questions: admin.questions });
+  } else {
+    res.status(404).json({ error: 'Admin not found' });
+  }
+});
+
+app.get('/categories', (req, res) => {
+  res.json(categoriesMock); // Send the categories array
 });
 
 

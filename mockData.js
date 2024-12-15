@@ -5,9 +5,9 @@ const adminMocks = [
     password: '1',
     role: 'admin',
     adminLevel: 1,
-    followin: 10, // New field
-    followers: 100, // New field
-    questions: ['What is leadership?', 'Define project management.'], // New field
+    followin: 10,
+    followers: 100,
+    questions: ['What is leadership?', 'Define project management.'],
   },
   {
     id: 2,
@@ -15,9 +15,9 @@ const adminMocks = [
     password: '1',
     role: 'admin',
     adminLevel: 2,
-    followin: 20, // New field
-    followers: 150, // New field
-    questions: ['What is teamwork?', 'What is agile methodology?'], // New field
+    followin: 20,
+    followers: 150,
+    questions: ['What is teamwork?', 'What is agile methodology?'],
   },
 ];
 
@@ -54,4 +54,13 @@ const userMocks = [
   },
 ];
 
-module.exports = { adminMocks, userMocks };
+const categoriesMock = [
+  { id: 1, name: 'Math' },
+  { id: 2, name: 'Biology' },
+  { id: 3, name: 'Physics' },
+  { id: 4, name: 'Chemistry' },
+  { id: 5, name: 'Computer Science' },
+  { id: 6, name: 'Economics' },
+];
+
+module.exports = { adminMocks, userMocks, categoriesMock };
