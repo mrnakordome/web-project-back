@@ -84,19 +84,54 @@ app.get('/user/:id', (req, res) => {
   }
 });
 
-/* ------------------- GET: Admin Questions ------------------- */
-app.get('/admin/:id/questions', (req, res) => {
-  const adminId = parseInt(req.params.id, 10);
-  const admin = adminMocks.find((a) => a.id === adminId);
+/* ------------------- GET: Random Unanswered Question ------------------- */
+app.get('/user/:id/questions/random', (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  const user = userMocks.find((u) => u.id === userId);
 
-  if (admin) {
-    const adminQuestions = admin.questions.map((qId) =>
-      questionsMock.find((question) => question.id === qId)
-    );
-    res.json({ questions: adminQuestions });
-  } else {
-    res.status(404).json({ error: 'Admin not found' });
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
   }
+
+  // Get IDs of questions the user has already answered
+  const answeredQuestionIds = user.questions.map((q) => q.questionId);
+
+  // Filter questions not yet answered
+  const unansweredQuestions = questionsMock.filter(
+    (question) => !answeredQuestionIds.includes(question.id)
+  );
+
+  if (unansweredQuestions.length === 0) {
+    return res.status(404).json({ error: 'No unanswered questions available.' });
+  }
+
+  // Select a random question
+  const randomQuestion =
+    unansweredQuestions[Math.floor(Math.random() * unansweredQuestions.length)];
+
+  res.json(randomQuestion);
+});
+
+/* ------------------- POST: Submit Answer ------------------- */
+app.post('/user/:id/questions/answer', (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  const { questionId, userAnswer } = req.body;
+
+  const user = userMocks.find((u) => u.id === userId);
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  // Check if the question exists
+  const question = questionsMock.find((q) => q.id === questionId);
+  if (!question) {
+    return res.status(404).json({ error: 'Question not found' });
+  }
+
+  // Add the answered question to the user's history
+  user.questions.push({ questionId, userAnswer });
+
+  res.status(200).json({ message: 'Answer submitted successfully!' });
 });
 
 /* ------------------- GET: User Questions History ------------------- */
@@ -120,7 +155,6 @@ app.get('/user/:id/questions/history', (req, res) => {
   }
 });
 
-
 /* ------------------- GET: Leaderboard ------------------- */
 app.get('/leaderboard', (req, res) => {
   const sortedUsers = [...userMocks].sort((a, b) => b.points - a.points);
@@ -131,7 +165,6 @@ app.get('/leaderboard', (req, res) => {
 app.post('/questions', (req, res) => {
   const { test, options, correctAnswer, categoryId, difficulty } = req.body;
 
-  // Validate category ID
   const category = categoriesMock.find((c) => c.id === parseInt(categoryId, 10));
   if (!category) {
     return res.status(400).json({ error: 'Invalid category ID' });
