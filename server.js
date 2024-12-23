@@ -179,6 +179,128 @@ app.post('/categories', async (req, res) => {
   }
 });
 
+// ------------------- GET: Admin Questions -------------------
+app.get('/admin/:id/questions', async (req, res) => {
+  const adminId = req.params.id;
+
+  try {
+    const admin = await User.findById(adminId).populate('questions');
+    if (!admin || admin.role !== 'admin') {
+      return res.status(404).json({ error: 'Admin not found.' });
+    }
+
+    res.json({ questions: admin.questions });
+    console.log(admin.questions);
+  } catch (err) {
+    console.error('Error fetching admin questions:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ------------------- GET: Random Unanswered Question -------------------
+app.get('/user/:id/questions/random', async (req, res) => {
+  const userId = req.params.id;
+
+  try {
+    const user = await User.findById(userId).populate('questions');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const answeredQuestionIds = user.questions.map((q) => q._id.toString());
+    const unansweredQuestions = await Question.find({
+      _id: { $nin: answeredQuestionIds },
+    });
+
+    if (unansweredQuestions.length === 0) {
+      return res.status(404).json({ error: 'No unanswered questions available.' });
+    }
+
+    const randomQuestion =
+      unansweredQuestions[Math.floor(Math.random() * unansweredQuestions.length)];
+
+    res.json(randomQuestion);
+  } catch (err) {
+    console.error('Error fetching random question:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ------------------- POST: Submit Answer -------------------
+app.post('/user/:id/questions/answer', async (req, res) => {
+  const userId = req.params.id;
+  const { questionId, userAnswer } = req.body;
+
+  console.log("Answer");
+  console.log(questionId);
+  console.log(userAnswer);
+
+  try {
+    const user = await User.findById(userId);
+    const question = await Question.findById(questionId);
+
+    if (!user || !question) {
+      console.log("User of Question not found");
+      return res.status(404).json({ error: 'User or question not found.' });
+    }
+
+    if (question.correctAnswer === userAnswer) {
+      user.points += question.difficulty;
+      await user.save();
+      return res.json({ message: 'Correct answer!', points: user.points });
+    } else {
+      return res.json({ message: 'Wrong answer.' });
+    }
+  } catch (err) {
+    console.log(err);
+    console.error('Submit Answer Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ------------------- POST: Add New Question -------------------
+app.post('/questions', async (req, res) => {
+  const { adminId, test, options, correctAnswer, categoryId, difficulty } = req.body;
+
+  if (!adminId || !test || !options || !correctAnswer || !categoryId || !difficulty) {
+    return res.status(400).json({ error: 'All fields are required.' });
+  }
+
+  try {
+    const admin = await User.findById(adminId);
+    if (!admin || admin.role !== 'admin') {
+      return res.status(404).json({ error: 'Admin not found or invalid role.' });
+    }
+
+    const category = await Category.findOne({ name: categoryId });
+    if (!category) {
+      return res.status(404).json({ error: 'Category not found.' });
+    }
+
+    const newQuestion = new Question({
+      test,
+      options,
+      correctAnswer,
+      categoryId: categoryId,
+      difficulty,
+    });
+
+    await newQuestion.save();
+
+    admin.questions.push(newQuestion._id);
+    await admin.save();
+
+    res.status(201).json({
+      message: 'Question added successfully!',
+      question: newQuestion,
+    });
+  } catch (err) {
+    console.log("Add Qustion Error:", err);
+    console.error('Add Question Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

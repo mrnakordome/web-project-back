@@ -9,7 +9,7 @@ const questionSchema = new mongoose.Schema({
     D: { type: String, required: true },
   },
   correctAnswer: { type: String, required: true }, // Correct option (e.g., 'A')
-  categoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' }, // Reference to Category
+  categoryId: { type: String, required: true }, // Reference to Category
   difficulty: { type: Number, required: true },
 });
 
