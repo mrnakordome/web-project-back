@@ -149,6 +149,36 @@ app.get('/leaderboard', async (req, res) => {
   }
 });
 
+// ------------------- GET: Categories -------------------
+app.get('/categories', async (req, res) => {
+  try {
+    const categories = await Category.find();
+    res.json(categories);
+  } catch (err) {
+    console.error('Error fetching categories:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ------------------- POST: Add New Category -------------------
+app.post('/categories', async (req, res) => {
+  const { name } = req.body;
+
+  if (!name || typeof name !== 'string' || name.trim() === '') {
+    return res.status(400).json({ error: 'Invalid category name' });
+  }
+
+  try {
+    const newCategory = new Category({ name: name.trim() });
+    await newCategory.save();
+
+    res.status(201).json({ message: 'Category added successfully!', category: newCategory });
+  } catch (err) {
+    console.error('Add Category Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
