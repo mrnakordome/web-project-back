@@ -207,7 +207,7 @@ app.get('/user/:id/questions/random', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const answeredQuestionIds = user.questions.map((q) => q._id.toString());
+    const answeredQuestionIds = user.answeredQuestions.map((answeredQuestion) => answeredQuestion.questionId.toString());
     const unansweredQuestions = await Question.find({
       _id: { $nin: answeredQuestionIds },
     });
