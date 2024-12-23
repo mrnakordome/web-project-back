@@ -5,6 +5,7 @@ const cors = require('cors');
 const bcrypt = require('bcrypt');
 const User = require('./models/User'); // User model
 const Question = require('./models/Question'); // Question model
+const Category = require('./models/Category');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -132,6 +133,19 @@ app.get('/admin/:id', async (req, res) => {
   } catch (error) {
     console.error('Error fetching admin details:', error.message);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+// ------------------- GET: Leaderboard -------------------
+app.get('/leaderboard', async (req, res) => {
+  try {
+    const leaderboard = await User.find()
+      .sort({ points: -1 })
+      .select('username points');
+
+    res.json({ leaderboard });
+  } catch (err) {
+    console.error('Error fetching leaderboard:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
