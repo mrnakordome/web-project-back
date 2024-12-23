@@ -243,13 +243,15 @@ app.post('/user/:id/questions/answer', async (req, res) => {
       console.log("User of Question not found");
       return res.status(404).json({ error: 'User or question not found.' });
     }
+    user.answeredQuestions.push({ questionId, answer: userAnswer });
+    await user.save();
 
     if (question.correctAnswer === userAnswer) {
       user.points += question.difficulty;
       await user.save();
-      return res.json({ message: 'Correct answer!', points: user.points });
+      return res.json({ message: 'Correct answer!' });
     } else {
-      return res.json({ message: 'Wrong answer.' });
+      return res.json({ message: 'Wrong answer!' });
     }
   } catch (err) {
     console.log(err);
@@ -297,6 +299,40 @@ app.post('/questions', async (req, res) => {
   } catch (err) {
     console.log("Add Qustion Error:", err);
     console.error('Add Question Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ------------------- GET: User Questions History -------------------
+app.get('/user/:id/questions/history', async (req, res) => {
+  const userId = req.params.id;
+
+  try {
+    // Fetch the user by ID and populate their answered questions
+    const user = await User.findById(userId).populate('questions');
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Assuming each user has an array of questions with user answers
+    const questionHistoryPromises = user.answeredQuestions.map((answeredQuestion) => {
+      return Question.findById(answeredQuestion.questionId).then((question) => {
+        return {
+          questionText: question?.test || 'Unknown Question',
+          userAnswer: answeredQuestion.answer || 'N/A',
+          correctAnswer: question?.correctAnswer || 'N/A',
+        };
+      });
+    });
+
+    // Wait for all promises to resolve
+    const questionHistory = await Promise.all(questionHistoryPromises);
+    console.log(questionHistory)
+
+    res.json(questionHistory);
+  } catch (err) {
+    console.error('Error fetching user questions history:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

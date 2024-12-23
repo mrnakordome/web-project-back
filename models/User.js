@@ -9,6 +9,10 @@ const userSchema = new mongoose.Schema({
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // References users (followers)
   questions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question' }], // Admins only
   points: { type: Number, default: 0 }, // User points
+  answeredQuestions: [{ 
+    questionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Question' }, // Reference to Question
+    answer: { type: String } // Answer provided by the user
+  }]
 });
 
 module.exports = mongoose.model('User', userSchema);
