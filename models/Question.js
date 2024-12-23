@@ -8,7 +8,7 @@ const questionSchema = new mongoose.Schema({
     C: { type: String, required: true },
     D: { type: String, required: true },
   },
-  correctAnswer: { type: String, required: true }, // Correct option (e.g., 'A')
+  correctAnswer: { type: String, required: true },
   categoryId: { type: String, required: true }, // Reference to Category
   difficulty: { type: Number, required: true },
 });
