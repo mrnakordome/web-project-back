@@ -303,6 +303,39 @@ app.post('/questions', async (req, res) => {
   }
 });
 
+// ------------------- GET: Unanswered Question by Category -------------------
+app.get('/user/:id/questions/category/:categoryId', async (req, res) => {
+  const { id, categoryId } = req.params;
+
+  try {
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get all questions that belong to the selected category and are unanswered by the user
+    const answeredQuestionIds = user.answeredQuestions.map((answeredQuestion) => answeredQuestion.questionId.toString());
+
+    const unansweredQuestions = await Question.find({
+      categoryId: categoryId, // Match the selected category
+      _id: { $nin: answeredQuestionIds }, // Exclude already answered questions
+    });
+
+    if (unansweredQuestions.length === 0) {
+      return res.status(404).json({ error: 'No unanswered questions available in this category.' });
+    }
+
+    // Pick a random unanswered question from this category
+    const randomQuestion = unansweredQuestions[Math.floor(Math.random() * unansweredQuestions.length)];
+    res.json(randomQuestion);
+  } catch (err) {
+    console.error('Error fetching random question from category:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+
 // ------------------- GET: User Questions History -------------------
 app.get('/user/:id/questions/history', async (req, res) => {
   const userId = req.params.id;
