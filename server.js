@@ -1,335 +1,341 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-
-// Import mock data
-const { adminMocks, userMocks, categoriesMock, questionsMock } = require('./mockData');
+const bcrypt = require('bcrypt');
+const User = require('./models/User'); // User model
+const Question = require('./models/Question'); // Question model
+const Category = require('./models/Category');
 
 const app = express();
-app.use(bodyParser.json());
+const PORT = process.env.PORT || 5000;
+
 app.use(cors());
+app.use(bodyParser.json());
 
-/* ------------------- POST: Login ------------------- */
-app.post('/login', (req, res) => {
-  const { username, password, role } = req.body;
+mongoose.connect('mongodb://127.0.0.1:27017/barbod', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+  .then(() => console.log('Connected to MongoDB'))
+  .catch((err) => console.error('MongoDB connection error:', err));
 
-  if (role === 'admin') {
-    const admin = adminMocks.find(
-      (a) => a.username === username && a.password === password
-    );
-    if (admin) {
-      return res.json({
-        id: admin.id,
-        username: admin.username,
-        role: admin.role,
-        adminLevel: admin.adminLevel,
-      });
-    }
-  } else if (role === 'user') {
-    const user = userMocks.find(
-      (u) => u.username === username && u.password === password
-    );
-    if (user) {
-      return res.json({
-        id: user.id,
-        username: user.username,
-        role: user.role,
-      });
-    }
-  }
-  res.status(401).json({ error: 'Invalid username or password' });
-});
-
-/* ------------------- GET: Leaderboard ------------------- */
-app.get('/leaderboard', (req, res) => {
-  const leaderboard = userMocks
-    .map((user) => ({ id: user.id, username: user.username, score: user.points }))
-    .sort((a, b) => b.score - a.score);
-
-  res.json({ leaderboard });
-});
-
-
-
-/* ------------------- POST: Register ------------------- */
-app.post('/register', (req, res) => {
+// ------------------- POST: Register -------------------
+app.post('/register', async (req, res) => {
   const { username, password, role } = req.body;
 
   if (!username || !password || !role) {
     return res.status(400).json({ error: 'All fields are required.' });
   }
 
-  // Check if the username already exists
-  if (role === 'user' && userMocks.some((u) => u.username === username)) {
-    return res.status(400).json({ error: 'Username already exists.' });
-  }
-  if (role === 'admin' && adminMocks.some((a) => a.username === username)) {
-    return res.status(400).json({ error: 'Username already exists.' });
-  }
+  try {
+    const existingUser = await User.findOne({ username });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Username already exists.' });
+    }
 
-  const newUser = {
-    id: role === 'user' ? userMocks.length + 1 : adminMocks.length + 1,
-    username,
-    password,
-    role,
-    followers: [], // Initialize as an empty array
-    followin: 0,
-    points: 0,
-    questions: [],
-  };
+    // Hash the password before saving it
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-  if (role === 'user') {
-    userMocks.push(newUser);
-  } else if (role === 'admin') {
-    adminMocks.push(newUser);
-  }
+    const newUser = new User({
+      username,
+      password: hashedPassword,
+      role,
+    });
 
-  res.status(201).json({ message: 'Registration successful!' });
-});
+    await newUser.save();
 
-/* ------------------- POST: Follow User/Admin ------------------- */
-app.post('/follow', (req, res) => {
-  const { followerId, followingId, role } = req.body;
-
-  const follower = userMocks.find((u) => u.id === followerId);
-  const following = role === 'user'
-    ? userMocks.find((u) => u.id === followingId)
-    : adminMocks.find((a) => a.id === followingId);
-
-  if (!follower || !following) {
-    return res.status(404).json({ error: 'User or Admin not found.' });
-  }
-
-  if (!following.followers.includes(followerId)) {
-    following.followers.push(followerId);
-    follower.points += 1; // Increase points for the follower
-    return res.status(200).json({ message: 'Followed successfully!' });
-  } else {
-    return res.status(400).json({ error: 'Already following this user/admin.' });
+    res.status(201).json({ message: 'Registration successful!' });
+  } catch (err) {
+    console.error('Register Error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
+// ------------------- POST: Login -------------------
+app.post('/login', async (req, res) => {
+  const { username, password, role } = req.body;
 
-
-/* ------------------- GET: Categories ------------------- */
-app.get('/categories', (req, res) => {
-  res.json(categoriesMock);
+  try {
+    const user = await User.findOne({ username, role });
+    if (user && await bcrypt.compare(password, user.password)) {
+      return res.json({
+        id: user._id,
+        username: user.username,
+        role: user.role,
+      });
+    }
+    return res.status(401).json({ error: 'Invalid username or password' });
+  } catch (err) {
+    console.error('Login Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
-/* ------------------- POST: Add New Category ------------------- */
-app.post('/categories', (req, res) => {
+// ------------------- GET: User Details -------------------
+app.get('/user/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Find user by ID
+    const user = await User.findById(id);
+
+    if (user) {
+      res.json({
+        id: user._id,
+        username: user.username,
+        followersCount: user.followers?.length || 0,
+        followingCount: user.followin,
+      });
+    } else {
+      res.status(404).json({ error: 'User not found' });
+    }
+  } catch (err) {
+    console.error('Error fetching user data:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ------------------- GET: Admin Details -------------------
+app.get('/admin/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Check if ID is valid
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid admin ID format' });
+    }
+
+    // Find user by ID and ensure role is 'admin'
+    const admin = await User.findOne({ _id: id, role: 'admin' }).populate('questions');
+
+    if (admin) {
+      res.json({
+        id: admin._id,
+        username: admin.username,
+        adminLevel: admin.adminLevel,
+        followin: admin.followin,
+        followersCount: admin.followers?.length || 0,
+        questions: admin.questions.map((q) => ({
+          id: q._id,
+          test: q.test,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          categoryId: q.categoryId,
+          difficulty: q.difficulty,
+        })),
+      });
+    } else {
+      res.status(404).json({ error: 'Admin not found' });
+    }
+  } catch (error) {
+    console.error('Error fetching admin details:', error.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+// ------------------- GET: Leaderboard -------------------
+app.get('/leaderboard', async (req, res) => {
+  try {
+    const leaderboard = await User.find()
+      .sort({ points: -1 })
+      .select('username points');
+
+    res.json({ leaderboard });
+  } catch (err) {
+    console.error('Error fetching leaderboard:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ------------------- GET: Categories -------------------
+app.get('/categories', async (req, res) => {
+  try {
+    const categories = await Category.find();
+    res.json(categories);
+  } catch (err) {
+    console.error('Error fetching categories:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ------------------- POST: Add New Category -------------------
+app.post('/categories', async (req, res) => {
   const { name } = req.body;
 
   if (!name || typeof name !== 'string' || name.trim() === '') {
     return res.status(400).json({ error: 'Invalid category name' });
   }
 
-  const newCategory = {
-    id: categoriesMock.length + 1,
-    name: name.trim(),
-  };
+  try {
+    const newCategory = new Category({ name: name.trim() });
+    await newCategory.save();
 
-  categoriesMock.push(newCategory);
-  res.status(201).json({ message: 'Category added successfully!', category: newCategory });
-});
-
-/* ------------------- GET: Admin Questions ------------------- */
-app.get('/admin/:id/questions', (req, res) => {
-  const adminId = parseInt(req.params.id, 10);
-
-  // Find the admin
-  const admin = adminMocks.find((a) => a.id === adminId);
-  if (!admin) {
-    return res.status(404).json({ error: 'Admin not found.' });
+    res.status(201).json({ message: 'Category added successfully!', category: newCategory });
+  } catch (err) {
+    console.error('Add Category Error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
-
-  // Fetch questions linked to the admin
-  const adminQuestions = admin.questions
-    .map((qId) => questionsMock.find((question) => question.id === qId))
-    .filter((question) => question !== undefined); // Filter out invalid IDs
-
-  // Return the questions
-  res.json({ questions: adminQuestions });
 });
 
+// ------------------- GET: Admin Questions -------------------
+app.get('/admin/:id/questions', async (req, res) => {
+  const adminId = req.params.id;
 
+  try {
+    const admin = await User.findById(adminId).populate('questions');
+    if (!admin || admin.role !== 'admin') {
+      return res.status(404).json({ error: 'Admin not found.' });
+    }
 
-/* ------------------- GET: Admin Details ------------------- */
-app.get('/admin/:id', (req, res) => {
-  const adminId = parseInt(req.params.id, 10);
-  const admin = adminMocks.find((a) => a.id === adminId);
+    res.json({ questions: admin.questions });
+    console.log(admin.questions);
+  } catch (err) {
+    console.error('Error fetching admin questions:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
-  if (admin) {
-    const adminQuestions = admin.questions.map((qId) =>
-      questionsMock.find((question) => question.id === qId)
-    );
-    res.json({
-      id: admin.id,
-      username: admin.username,
-      followers: admin.followers.length, // Return the count of followers
-      followin: admin.followin,
-      questions: adminQuestions,
+// ------------------- GET: Random Unanswered Question -------------------
+app.get('/user/:id/questions/random', async (req, res) => {
+  const userId = req.params.id;
+
+  try {
+    const user = await User.findById(userId).populate('questions');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const answeredQuestionIds = user.answeredQuestions.map((answeredQuestion) => answeredQuestion.questionId.toString());
+    const unansweredQuestions = await Question.find({
+      _id: { $nin: answeredQuestionIds },
     });
-  } else {
-    res.status(404).json({ error: 'Admin not found' });
+
+    if (unansweredQuestions.length === 0) {
+      return res.status(404).json({ error: 'No unanswered questions available.' });
+    }
+
+    const randomQuestion =
+      unansweredQuestions[Math.floor(Math.random() * unansweredQuestions.length)];
+
+    res.json(randomQuestion);
+  } catch (err) {
+    console.error('Error fetching random question:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-
-
-/* ------------------- GET: User Details ------------------- */
-app.get('/user/:id', (req, res) => {
-  const userId = parseInt(req.params.id, 10);
-  const user = userMocks.find((u) => u.id === userId);
-
-  if (user) {
-    res.json({
-      id: user.id,
-      username: user.username,
-      followers: user.followers.length, // Return the count of followers
-      following: user.points,
-    });
-  } else {
-    res.status(404).json({ error: 'User not found' });
-  }
-});
-
-
-
-/* ------------------- GET: Random Unanswered Question ------------------- */
-app.get('/user/:id/questions/random', (req, res) => {
-  const userId = parseInt(req.params.id, 10);
-  const user = userMocks.find((u) => u.id === userId);
-
-  if (!user) {
-    return res.status(404).json({ error: 'User not found' });
-  }
-
-  const answeredQuestionIds = user.questions.map((q) => q.questionId);
-  const unansweredQuestions = questionsMock.filter(
-    (question) => !answeredQuestionIds.includes(question.id)
-  );
-
-  if (unansweredQuestions.length === 0) {
-    return res.status(404).json({ error: 'No unanswered questions available.' });
-  }
-
-  const randomQuestion =
-    unansweredQuestions[Math.floor(Math.random() * unansweredQuestions.length)];
-
-  res.json(randomQuestion);
-});
-
-/* ------------------- POST: Submit Answer ------------------- */
-app.post('/user/:id/questions/answer', (req, res) => {
-  const userId = parseInt(req.params.id, 10);
+// ------------------- POST: Submit Answer -------------------
+app.post('/user/:id/questions/answer', async (req, res) => {
+  const userId = req.params.id;
   const { questionId, userAnswer } = req.body;
 
-  const user = userMocks.find((u) => u.id === userId);
-  const question = questionsMock.find((q) => q.id === questionId);
+  console.log("Answer");
+  console.log(questionId);
+  console.log(userAnswer);
 
-  if (!user) return res.status(404).json({ error: 'User not found.' });
-  if (!question) return res.status(404).json({ error: 'Question not found.' });
+  try {
+    const user = await User.findById(userId);
+    const question = await Question.findById(questionId);
 
-  if (question.correctAnswer === userAnswer) {
-    user.points += question.difficulty;
-    return res.json({ message: 'Correct answer!', points: user.points });
-  } else {
-    return res.json({ message: 'Wrong answer.' });
+    if (!user || !question) {
+      console.log("User of Question not found");
+      return res.status(404).json({ error: 'User or question not found.' });
+    }
+    user.answeredQuestions.push({ questionId, answer: userAnswer });
+    await user.save();
+
+    if (question.correctAnswer === userAnswer) {
+      user.points += question.difficulty;
+      await user.save();
+      return res.json({ message: 'Correct answer!' });
+    } else {
+      return res.json({ message: 'Wrong answer!' });
+    }
+  } catch (err) {
+    console.log(err);
+    console.error('Submit Answer Error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-
-/* ------------------- GET: Search User by Username ------------------- */
-app.get('/search/user', (req, res) => {
-  const { username } = req.query; // Query parameter
-  const user = userMocks.find((u) => u.username === username);
-  if (!user) {
-    return res.status(404).json({ error: 'User not found' });
-  }
-  res.status(200).json(user);
-});
-
-/* ------------------- GET: Search Admin by Username ------------------- */
-app.get('/search/admin', (req, res) => {
-  const { username } = req.query; // Query parameter
-  const admin = adminMocks.find((a) => a.username === username);
-  if (!admin) {
-    return res.status(404).json({ error: 'Admin not found' });
-  }
-  res.status(200).json(admin);
-});
-
-
-/* ------------------- GET: User Questions History ------------------- */
-app.get('/user/:id/questions/history', (req, res) => {
-  const userId = parseInt(req.params.id, 10);
-  const user = userMocks.find((u) => u.id === userId);
-
-  if (user) {
-    const questionHistory = user.questions.map((userQ) => {
-      const question = questionsMock.find((q) => q.id === userQ.questionId);
-      return {
-        questionText: question?.test || 'Unknown Question',
-        userAnswer: userQ.userAnswer || 'N/A',
-        correctAnswer: question?.correctAnswer || 'N/A',
-      };
-    });
-
-    return res.json(questionHistory);
-  } else {
-    return res.status(404).json({ error: 'User not found' });
-  }
-});
-
-/* ------------------- POST: Add New Question ------------------- */
-app.post('/questions', (req, res) => {
+// ------------------- POST: Add New Question -------------------
+app.post('/questions', async (req, res) => {
   const { adminId, test, options, correctAnswer, categoryId, difficulty } = req.body;
 
-  // Validate input fields
   if (!adminId || !test || !options || !correctAnswer || !categoryId || !difficulty) {
     return res.status(400).json({ error: 'All fields are required.' });
   }
 
-  // Find the category
-  const category = categoriesMock.find((c) => c.id === parseInt(categoryId, 10));
-  if (!category) {
-    return res.status(400).json({ error: 'Invalid category ID.' });
+  try {
+    const admin = await User.findById(adminId);
+    if (!admin || admin.role !== 'admin') {
+      return res.status(404).json({ error: 'Admin not found or invalid role.' });
+    }
+
+    const category = await Category.findOne({ name: categoryId });
+    if (!category) {
+      return res.status(404).json({ error: 'Category not found.' });
+    }
+
+    const newQuestion = new Question({
+      test,
+      options,
+      correctAnswer,
+      categoryId: categoryId,
+      difficulty,
+    });
+
+    await newQuestion.save();
+
+    admin.questions.push(newQuestion._id);
+    await admin.save();
+
+    res.status(201).json({
+      message: 'Question added successfully!',
+      question: newQuestion,
+    });
+  } catch (err) {
+    console.log("Add Qustion Error:", err);
+    console.error('Add Question Error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
-
-  // Generate a new question ID
-  const newQuestionId = questionsMock.length > 0
-    ? Math.max(...questionsMock.map((q) => q.id)) + 1
-    : 1;
-
-  // Create the new question object
-  const newQuestion = {
-    id: newQuestionId,
-    test,
-    options,
-    correctAnswer,
-    categoryId: category.id,
-    difficulty: parseFloat(difficulty),
-  };
-
-  // Add the new question to questionsMock
-  questionsMock.push(newQuestion);
-
-  // Link the question ID to the admin's question array
-  const admin = adminMocks.find((a) => a.id === parseInt(adminId, 10));
-  if (!admin) {
-    return res.status(404).json({ error: 'Admin not found.' });
-  }
-
-  admin.questions.push(newQuestionId);
-
-  // Send response
-  res.status(201).json({
-    message: 'Question added successfully!',
-    question: newQuestion,
-  });
 });
 
-/* ------------------- SERVER START ------------------- */
-const PORT = 5000;
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+// ------------------- GET: User Questions History -------------------
+app.get('/user/:id/questions/history', async (req, res) => {
+  const userId = req.params.id;
+
+  try {
+    // Fetch the user by ID and populate their answered questions
+    const user = await User.findById(userId).populate('questions');
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Assuming each user has an array of questions with user answers
+    const questionHistoryPromises = user.answeredQuestions.map((answeredQuestion) => {
+      return Question.findById(answeredQuestion.questionId).then((question) => {
+        return {
+          questionText: question?.test || 'Unknown Question',
+          userAnswer: answeredQuestion.answer || 'N/A',
+          correctAnswer: question?.correctAnswer || 'N/A',
+        };
+      });
+    });
+
+    // Wait for all promises to resolve
+    const questionHistory = await Promise.all(questionHistoryPromises);
+    console.log(questionHistory)
+
+    res.json(questionHistory);
+  } catch (err) {
+    console.error('Error fetching user questions history:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Start the server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
