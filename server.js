@@ -136,9 +136,10 @@ app.get('/admin/:id', async (req, res) => {
 // ------------------- GET: Leaderboard -------------------
 app.get('/leaderboard', async (req, res) => {
   try {
-    const leaderboard = await User.find()
-      .sort({ points: -1 })
-      .select('username points');
+    // Find all users who are not admins, sorted by points in descending order
+    const leaderboard = await User.find({ role: { $ne: 'admin' } }) // Exclude admins
+      .sort({ points: -1 }) // Sort by points in descending order
+      .select('username points'); // Select only username and points fields
 
     res.json({ leaderboard });
   } catch (err) {
@@ -146,6 +147,7 @@ app.get('/leaderboard', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
 
 // ------------------- GET: Categories -------------------
 app.get('/categories', async (req, res) => {
