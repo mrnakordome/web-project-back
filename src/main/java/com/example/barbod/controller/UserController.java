@@ -10,6 +10,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
+import java.awt.print.Printable;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -53,9 +54,12 @@ public class UserController {
     // ------------------- GET: Leaderboard -------------------
     @GetMapping("/leaderboard")
     public ResponseEntity<?> getLeaderboard() {
+        System.out.println("Getting Leaderboard");
         try {
             // Exclude admins and sort by points descending
             List<User> userList = userRepository.findByRoleNot("admin", Sort.by(Sort.Direction.DESC, "points"));
+
+            System.out.println(userList);
 
             // Transform userList into a leaderboard list
             List<Map<String, Object>> leaderboard = userList.stream().map(user -> {
@@ -106,6 +110,18 @@ public class UserController {
             return ResponseEntity.ok(randomQuestion);
         } catch (Exception e) {
             System.err.println("Error fetching random question: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Server error"));
+        }
+    }
+    // ------------------- GET: User by username -------------------
+    @GetMapping("/username/{username}")
+    public  ResponseEntity<?> getUserByUsername(@PathVariable("username") String username){
+        try {
+            Optional<User> userOpt = userRepository.findByUsername(username);
+            return ResponseEntity.ok(userOpt);
+        } catch (Exception e) {
+            System.err.println("Error fetching User by username: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Collections.singletonMap("error", "Server error"));
         }
