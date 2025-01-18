@@ -74,7 +74,27 @@ public class AdminController {
     }
 
     // ================= New Endpoint =================
+    @GetMapping("/username/{username}")
+    public  ResponseEntity<?> getUserByUsername(@PathVariable("username") String username){
+        try {
+            Optional<User> userOpt = userRepository.findByUsername(username);
+            if(userOpt.isEmpty()){
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Collections.singletonMap("error", "Follower or following not found."));
+            }
+            User user = userOpt.get();
+            if(Objects.equals(user.getRole(), "user")){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Collections.singletonMap("error", "Wrong role."));
+            }
 
+            return ResponseEntity.ok(user);
+        } catch (Exception e) {
+            System.err.println("Error fetching User by username: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Server error"));
+        }
+    }
     // ------------------- POST: Add New Question -------------------
     @PostMapping("/questions")
     public ResponseEntity<?> addNewQuestion(@RequestBody Map<String, Object> request) {

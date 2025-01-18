@@ -69,6 +69,11 @@ public class UserController {
             List<String> followed = follower.getFollowings();
             if(followed == null) followed = new ArrayList<>();
 
+            if(followed.contains(following.getId())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Collections.singletonMap("error", "You already follow this person."));
+            }
+
             followed.add(following.getId());
             follower.setFollowings(followed);
 
@@ -159,7 +164,17 @@ public class UserController {
     public  ResponseEntity<?> getUserByUsername(@PathVariable("username") String username){
         try {
             Optional<User> userOpt = userRepository.findByUsername(username);
-            return ResponseEntity.ok(userOpt);
+            if(userOpt.isEmpty()){
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Collections.singletonMap("error", "Follower or following not found."));
+            }
+            User user = userOpt.get();
+            if(Objects.equals(user.getRole(), "admin")){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Collections.singletonMap("error", "Wrong role."));
+            }
+
+            return ResponseEntity.ok(user);
         } catch (Exception e) {
             System.err.println("Error fetching User by username: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
