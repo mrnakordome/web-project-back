@@ -1,5 +1,6 @@
 package com.example.barbod.controller;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.example.barbod.model.Question;
 import com.example.barbod.model.User;
 import com.example.barbod.repository.QuestionRepository;
@@ -41,7 +42,7 @@ public class UserController {
                     user.getId(),
                     user.getUsername(),
                     user.getFollowers() != null ? user.getFollowers().size() : 0,
-                    user.getFollowin()
+                    user.getFollowingCount()
             );
             return ResponseEntity.ok(response);
         } else {
@@ -50,6 +51,45 @@ public class UserController {
     }
 
     // ================= New Endpoints =================
+    @PostMapping("/follow")
+    public ResponseEntity<?> followUser(@RequestBody FollowRequest request){
+        System.out.println(request.toString());
+        try {
+            Optional<User> followerOpt = userRepository.findById(request.getFollowerId());
+            Optional<User> followingOpt = userRepository.findById(request.getFollowingId());
+
+            if(followerOpt.isEmpty() || followingOpt.isEmpty()){
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Collections.singletonMap("error", "Follower or following not found."));
+            }
+            User follower = followerOpt.get();
+            User following = followingOpt.get();
+
+            //List of users followed by the "follower" user
+            List<String> followed = follower.getFollowings();
+            if(followed == null) followed = new ArrayList<>();
+
+            followed.add(following.getId());
+            follower.setFollowings(followed);
+
+            //List of users following the "following" user
+            List<String> followers = following.getFollowers();
+            if(followers == null) followers = new ArrayList<>();
+
+            followers.add(follower.getId());
+            following.setFollowers(followers);
+
+            userRepository.save(follower);
+            userRepository.save(following);
+
+            System.out.println(request.getFollowerId() + " now follows " + request.getFollowingId());
+            return ResponseEntity.ok(Collections.singletonMap("message", "You are now following " + following.getUsername()));
+        } catch (Exception e) {
+            System.err.println("Error following user: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Server error"));
+        }
+    }
 
     // ------------------- GET: Leaderboard -------------------
     @GetMapping("/leaderboard")
@@ -343,6 +383,50 @@ public class UserController {
 
         public void setUserAnswer(String userAnswer) {
             this.userAnswer = userAnswer;
+        }
+    }
+    static class FollowRequest {
+        @JsonProperty("followerId")
+        private String followerId;
+
+        @JsonProperty("followingId")
+        private String followingId;
+
+        @JsonProperty("role")
+        private String role;
+
+        // Getters and Setters
+        public String getFollowerId() {
+            return followerId;
+        }
+
+        public void setFollowerId(String followerId) {
+            this.followerId = followerId;
+        }
+
+        public String getFollowingId() {
+            return followingId;
+        }
+
+        public void setFollowingId(String followingId) {
+            this.followingId = followingId;
+        }
+
+        public String getRole() {
+            return role;
+        }
+
+        public void setRole(String role) {
+            this.role = role;
+        }
+
+        @Override
+        public String toString() {
+            return "FollowRequest{" +
+                    "followerId='" + followerId + '\'' +
+                    ", followingId='" + followingId + '\'' +
+                    ", role='" + role + '\'' +
+                    '}';
         }
     }
 }

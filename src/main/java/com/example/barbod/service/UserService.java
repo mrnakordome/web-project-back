@@ -38,6 +38,11 @@ public class UserService {
         throw new Exception("Invalid username or password.");
     }
 
+    public void Follow(String followerId, String followingId, String followingRole){
+        Optional<User> follower = userRepository.findById(followerId);
+        Optional<User> following = userRepository.findById(followingRole);
+    }
+
     public Optional<User> findUserById(String id) {
         return userRepository.findById(id);
     }

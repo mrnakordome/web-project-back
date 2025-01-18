@@ -10,6 +10,9 @@ import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.Collections;
+
 
 @RestController
 @Validated
@@ -142,7 +145,7 @@ public class AuthController {
             user.setPassword(registerRequest.getPassword());
             user.setRole(registerRequest.getRole());
             user.setAdminLevel(0);   // default
-            user.setFollowin(0);     // default
+            user.setFollowings(new ArrayList<>());     // default
             user.setPoints(0);       // default
 
             userService.registerUser(user);

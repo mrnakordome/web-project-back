@@ -4,6 +4,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Document(collection = "users")
@@ -15,7 +16,7 @@ public class User {
     private String password;
     private String role; // "user" or "admin"
     private Integer adminLevel;
-    private Integer followin;
+    private List<String> followings;
     private List<String> followers; // List of User IDs
     private List<String> questions; // List of Question IDs
     private Integer points;
@@ -28,14 +29,14 @@ public class User {
     }
 
     public User(String id, String username, String password, String role, Integer adminLevel,
-                Integer followin, List<String> followers, List<String> questions, Integer points,
+                List<String> followings, List<String> followers, List<String> questions, Integer points,
                 List<AnsweredQuestion> answeredQuestions) {
         this.id = id;
         this.username = username;
         this.password = password;
         this.role = role;
         this.adminLevel = adminLevel;
-        this.followin = followin;
+        this.followings = followings;
         this.followers = followers;
         this.questions = questions;
         this.points = points;
@@ -115,12 +116,14 @@ public class User {
         this.adminLevel = adminLevel;
     }
 
-    public Integer getFollowin() {
-        return followin;
+    public Integer getFollowingCount() {
+        return followings.size();
     }
-
-    public void setFollowin(Integer followin) {
-        this.followin = followin;
+    public List<String> getFollowings(){
+        return followings;
+    }
+    public void setFollowings(List<String> followings) {
+        this.followings = followings;
     }
 
     public List<String> getFollowers() {

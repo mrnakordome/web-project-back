@@ -62,7 +62,7 @@ public class AdminController {
                     admin.getId(),
                     admin.getUsername(),
                     admin.getAdminLevel(),
-                    admin.getFollowin(),
+                    admin.getFollowingCount(),
                     admin.getFollowers() != null ? admin.getFollowers().size() : 0,
                     questionDTOs
             );
