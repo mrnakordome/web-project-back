@@ -117,6 +117,7 @@ public class User {
     }
 
     public Integer getFollowingCount() {
+        if(followings == null) return 0;
         return followings.size();
     }
     public List<String> getFollowings(){
