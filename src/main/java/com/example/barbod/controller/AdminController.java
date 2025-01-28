@@ -1,5 +1,6 @@
 package com.example.barbod.controller;
 
+import com.example.barbod.dto.AddQuestionRequest;
 import com.example.barbod.model.Category;
 import com.example.barbod.model.Question;
 import com.example.barbod.model.User;
@@ -96,38 +97,25 @@ public class AdminController {
         }
     }
     // ------------------- POST: Add New Question -------------------
+    // ==================== POST /admin/questions ====================
+    /**
+     * Creates a new question by an admin.
+     * Expects JSON body matching AddQuestionRequest.
+     */
     @PostMapping("/questions")
-    public ResponseEntity<?> addNewQuestion(@RequestBody Map<String, Object> request) {
-        // Extract fields from the request body
-        String adminId = (String) request.get("adminId");
-        String test = (String) request.get("test");
-        Map<String, String> optionsMap = (Map<String, String>) request.get("options");
-        String correctAnswer = (String) request.get("correctAnswer");
-        String categoryIdOrName = (String) request.get("categoryId");
-        Integer difficulty = null;
+    public ResponseEntity<?> addNewQuestion(@RequestBody AddQuestionRequest request) {
+        // 1. Validate required fields
+        if (request.getAdminId() == null || request.getTest() == null ||
+                request.getOptions() == null || request.getCorrectAnswer() == null ||
+                request.getCategoryId() == null || request.getDifficulty() == null) {
 
-        // Validate and parse difficulty
-        try {
-            difficulty = (Integer) request.get("difficulty");
-            if (difficulty == null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(Collections.singletonMap("error", "Difficulty must be an integer."));
-            }
-        } catch (ClassCastException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Collections.singletonMap("error", "Difficulty must be an integer."));
-        }
-
-        // Validate required fields
-        if (adminId == null || test == null || optionsMap == null || correctAnswer == null
-                || categoryIdOrName == null || difficulty == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Collections.singletonMap("error", "All fields are required."));
         }
 
         try {
-            // Fetch and validate admin
-            Optional<User> adminOpt = userRepository.findById(adminId);
+            // 2. Fetch and validate admin
+            Optional<User> adminOpt = userRepository.findById(request.getAdminId());
             if (adminOpt.isEmpty() || !"admin".equalsIgnoreCase(adminOpt.get().getRole())) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Collections.singletonMap("error", "Admin not found or invalid role."));
@@ -135,55 +123,117 @@ public class AdminController {
 
             User admin = adminOpt.get();
 
-            // Fetch category by ID or Name
-            Optional<Category> categoryOpt = categoryRepository.findById(categoryIdOrName);
+            // 3. Fetch category by ID
+            Optional<Category> categoryOpt = categoryRepository.findById(request.getCategoryId());
             if (categoryOpt.isEmpty()) {
-                // If not found by ID, try finding by name
-                categoryOpt = categoryRepository.findAll().stream()
-                        .filter(cat -> cat.getName().equalsIgnoreCase(categoryIdOrName))
-                        .findFirst();
-                if (categoryOpt.isEmpty()) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                            .body(Collections.singletonMap("error", "Category not found."));
-                }
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Collections.singletonMap("error", "Category not found."));
             }
-
             Category category = categoryOpt.get();
 
-            // Create Options object
-            Question.Options options = new Question.Options(
-                    optionsMap.getOrDefault("A", ""),
-                    optionsMap.getOrDefault("B", ""),
-                    optionsMap.getOrDefault("C", ""),
-                    optionsMap.getOrDefault("D", "")
+            // 4. Convert AddQuestionRequest.OptionsDTO -> Question.Options
+            AddQuestionRequest.OptionsDTO optionsDTO = request.getOptions();
+            if (optionsDTO.getA() == null || optionsDTO.getB() == null ||
+                    optionsDTO.getC() == null || optionsDTO.getD() == null) {
+
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Collections.singletonMap("error", "All options (A, B, C, D) are required."));
+            }
+
+            Question.Options questionOptions = new Question.Options(
+                    optionsDTO.getA(),
+                    optionsDTO.getB(),
+                    optionsDTO.getC(),
+                    optionsDTO.getD()
             );
 
-            // Create and save new question
+            // 5. Create a new Question
             Question newQuestion = new Question();
-            newQuestion.setTest(test);
-            newQuestion.setOptions(options);
-            newQuestion.setCorrectAnswer(correctAnswer);
-            newQuestion.setCategoryId(category.getId()); // Use category's ID
-            newQuestion.setDifficulty(difficulty);
+            newQuestion.setTest(request.getTest());
+            newQuestion.setOptions(questionOptions);
+            newQuestion.setCorrectAnswer(request.getCorrectAnswer());
+            newQuestion.setCategoryId(category.getId()); // Use the Category's ID
+            newQuestion.setDifficulty(request.getDifficulty());
 
+            // 6. Save the new question
             Question savedQuestion = questionRepository.save(newQuestion);
 
-            // Add question ID to admin's questions list
+            // 7. Add the question ID to admin's "questions" list
             admin.getQuestions().add(savedQuestion.getId());
             userRepository.save(admin);
 
-            // Prepare response
+            // 8. Convert savedQuestion to QuestionResponseDTO
+            QuestionResponseDTO questionDTO = new QuestionResponseDTO(
+                    savedQuestion.getId(),
+                    savedQuestion.getTest(),
+                    savedQuestion.getOptions(),
+                    savedQuestion.getCorrectAnswer(),
+                    savedQuestion.getCategoryId(),
+                    savedQuestion.getDifficulty()
+            );
+
+            // 9. Return success response with QuestionResponseDTO
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Question added successfully!");
-            response.put("question", savedQuestion);
+            response.put("question", questionDTO);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
         } catch (Exception e) {
             System.err.println("Add Question Error: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Collections.singletonMap("error", "Server error"));
         }
     }
+    // ==================== GET /admin/{adminId}/questions ====================
+    /**
+     * Fetches all questions created by the admin with ID = adminId.
+     * If the admin has created no questions, returns an empty list.
+     */
+    @GetMapping("/{adminId}/questions")
+    public ResponseEntity<?> getAdminQuestions(@PathVariable("adminId") String adminId) {
+        try {
+            // 1. Validate admin existence
+            Optional<User> adminOpt = userRepository.findById(adminId);
+            if (adminOpt.isEmpty() || !"admin".equalsIgnoreCase(adminOpt.get().getRole())) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Collections.singletonMap("error", "Admin not found or invalid role."));
+            }
+            User admin = adminOpt.get();
+
+            // 2. Retrieve question IDs from the admin
+            List<String> questionIds = admin.getQuestions();
+            if (questionIds == null || questionIds.isEmpty()) {
+                // Admin has no questions
+                return ResponseEntity.ok(Collections.emptyList());
+            }
+
+            // 3. Fetch the Question objects from questionIds
+            List<Question> questions = questionRepository.findAllById(questionIds);
+
+            // 4. Convert each Question to a simpler DTO
+            List<QuestionResponseDTO> result = questions.stream()
+                    .map(q -> new QuestionResponseDTO(
+                            q.getId(),
+                            q.getTest(),
+                            q.getOptions(),
+                            q.getCorrectAnswer(),
+                            q.getCategoryId(),
+                            q.getDifficulty()
+                    ))
+                    .collect(Collectors.toList());
+
+            // 5. Return the list of questions as JSON
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            System.err.println("Failed to fetch admin questions: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Server error"));
+        }
+    }
+
+
 
     // ================= Inner DTO Classes =================
 
@@ -280,4 +330,52 @@ public class AdminController {
             return difficulty;
         }
     }
+    public static class QuestionResponseDTO {
+        private String id;
+        private String test;
+        private Question.Options options;
+        private String correctAnswer;
+        private String categoryId;
+        private Integer difficulty;
+
+        public QuestionResponseDTO() {
+        }
+
+        public QuestionResponseDTO(String id, String test, Question.Options options,
+                                   String correctAnswer, String categoryId, Integer difficulty) {
+            this.id = id;
+            this.test = test;
+            this.options = options;
+            this.correctAnswer = correctAnswer;
+            this.categoryId = categoryId;
+            this.difficulty = difficulty;
+        }
+
+        // Getters
+
+        public String getId() {
+            return id;
+        }
+
+        public String getTest() {
+            return test;
+        }
+
+        public Question.Options getOptions() {
+            return options;
+        }
+
+        public String getCorrectAnswer() {
+            return correctAnswer;
+        }
+
+        public String getCategoryId() {
+            return categoryId;
+        }
+
+        public Integer getDifficulty() {
+            return difficulty;
+        }
+    }
+
 }

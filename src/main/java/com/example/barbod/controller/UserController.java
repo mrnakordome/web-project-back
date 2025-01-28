@@ -291,6 +291,55 @@ public class UserController {
                     .body(Collections.singletonMap("error", "Server error"));
         }
     }
+    // ==================== GET /user/{userId}/questions/history ====================
+    /**
+     * Endpoint to fetch a user's question history.
+     *
+     * @param userId ID of the user.
+     * @return ResponseEntity with list of answered questions, or error message.
+     */
+    @GetMapping("/{userId}/questions/history")
+    public ResponseEntity<?> getUserQuestionsHistory(@PathVariable("userId") String userId) {
+        try {
+            // Fetch the user by ID
+            Optional<User> userOpt = userRepository.findById(userId);
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Collections.singletonMap("error", "User not found"));
+            }
+
+            User user = userOpt.get();
+
+            // Fetch all answered questions with their corresponding question details
+            List<QuestionHistoryDTO> questionHistory = user.getAnsweredQuestions().stream()
+                    .map(aq -> {
+                        Optional<Question> questionOpt = questionRepository.findById(aq.getQuestionId());
+                        if (questionOpt.isPresent()) {
+                            Question q = questionOpt.get();
+                            return new QuestionHistoryDTO(
+                                    q.getTest(),
+                                    aq.getAnswer(),
+                                    q.getCorrectAnswer()
+                            );
+                        } else {
+                            // If the question no longer exists
+                            return new QuestionHistoryDTO(
+                                    "Unknown Question",
+                                    aq.getAnswer(),
+                                    "N/A"
+                            );
+                        }
+                    })
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(questionHistory);
+        } catch (Exception e) {
+            System.err.println("Error fetching user questions history: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Server error"));
+        }
+    }
+
 
 
     // ================= Inner DTO Classes =================
@@ -444,4 +493,33 @@ public class UserController {
                     '}';
         }
     }
+    public static class QuestionHistoryDTO {
+        private String questionText;
+        private String userAnswer;
+        private String correctAnswer;
+
+        public QuestionHistoryDTO() {
+        }
+
+        public QuestionHistoryDTO(String questionText, String userAnswer, String correctAnswer) {
+            this.questionText = questionText;
+            this.userAnswer = userAnswer;
+            this.correctAnswer = correctAnswer;
+        }
+
+        // Getters
+
+        public String getQuestionText() {
+            return questionText;
+        }
+
+        public String getUserAnswer() {
+            return userAnswer;
+        }
+
+        public String getCorrectAnswer() {
+            return correctAnswer;
+        }
+    }
+
 }
