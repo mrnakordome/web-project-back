@@ -229,27 +229,9 @@ public class UserController {
             String questionId = request.getQuestionId();
             String userAnswer = request.getUserAnswer();
 
-            // Log the incoming request
-            System.out.println("Submitting answer for User ID: " + userId);
-            System.out.println("Question ID: " + questionId);
-            System.out.println("User Answer: " + userAnswer);
-
-            // 1. Validate request body
-            if (questionId == null || userAnswer == null) {
-                return ResponseEntity.badRequest()
-                        .body(Collections.singletonMap("error", "questionId and userAnswer are required."));
-            }
-
-            // 2. Fetch user & question
+            // 1. Validate user & question existence
             Optional<User> userOpt = userRepository.findById(userId);
             Optional<Question> questionOpt = questionRepository.findById(questionId);
-
-            if (userOpt.isEmpty()) {
-                System.out.println("User not found: " + userId);
-            }
-            if (questionOpt.isEmpty()) {
-                System.out.println("Question not found: " + questionId);
-            }
             if (userOpt.isEmpty() || questionOpt.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Collections.singletonMap("error", "User or question not found."));
@@ -258,30 +240,38 @@ public class UserController {
             User user = userOpt.get();
             Question question = questionOpt.get();
 
-            // 3. Check if question is already answered
+            // 2. Check if this question is already answered by the user
             boolean alreadyAnswered = user.getAnsweredQuestions().stream()
                     .anyMatch(aq -> aq.getQuestionId().equals(questionId));
             if (alreadyAnswered) {
-                System.out.println("Question already answered by user: " + questionId);
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(Collections.singletonMap("error", "Question already answered."));
+                        .body(Collections.singletonMap("error", "Question already answered by this user."));
+            }
+
+            // 3. Determine correctness (case-insensitive, trimmed)
+            boolean isCorrect = false;
+            if (question.getCorrectAnswer() != null && userAnswer != null) {
+                String correctTrimmed = question.getCorrectAnswer().trim().toLowerCase();
+                String userTrimmed = userAnswer.trim().toLowerCase();
+                isCorrect = correctTrimmed.equals(userTrimmed);
             }
 
             // 4. Record answered question
             User.AnsweredQuestion answered = new User.AnsweredQuestion(questionId, userAnswer);
             user.getAnsweredQuestions().add(answered);
 
-            // 5. Check correctness
-            boolean isCorrect = question.getCorrectAnswer().equalsIgnoreCase(userAnswer.trim());
+            // 5. If correct, add question difficulty to user's points
             if (isCorrect) {
+                if (user.getPoints() == null) {
+                    user.setPoints(0); // in case points is null
+                }
                 user.setPoints(user.getPoints() + question.getDifficulty());
-                System.out.println("Answer is correct. Updated points: " + user.getPoints());
-            } else {
-                System.out.println("Answer is incorrect.");
             }
+
+            // 6. Save user with updated answeredQuestions & points
             userRepository.save(user);
 
-            // 6. Send success response
+            // 7. Return success message
             String message = isCorrect ? "Correct answer!" : "Wrong answer!";
             return ResponseEntity.ok(Collections.singletonMap("message", message));
 
@@ -291,6 +281,8 @@ public class UserController {
                     .body(Collections.singletonMap("error", "Server error"));
         }
     }
+
+
     // ==================== GET /user/{userId}/questions/history ====================
     /**
      * Endpoint to fetch a user's question history.
@@ -339,6 +331,70 @@ public class UserController {
                     .body(Collections.singletonMap("error", "Server error"));
         }
     }
+
+    @GetMapping("/{userId}/feed")
+    public ResponseEntity<?> getUserFeed(@PathVariable("userId") String userId) {
+        try {
+            // 1. Fetch the user
+            Optional<User> userOpt = userRepository.findById(userId);
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Collections.singletonMap("error", "User not found."));
+            }
+            User user = userOpt.get();
+
+            // 2. Gather user's answered question IDs (to exclude them from feed)
+            Set<String> answeredIds = new HashSet<>();
+            if (user.getAnsweredQuestions() != null) {
+                answeredIds = user.getAnsweredQuestions().stream()
+                        .map(User.AnsweredQuestion::getQuestionId)
+                        .collect(Collectors.toSet());
+            }
+
+            // 3. Get the list of users that this user follows
+            List<String> followings = user.getFollowings();
+            if (followings == null || followings.isEmpty()) {
+                // If not following anyone, feed is empty
+                return ResponseEntity.ok(Collections.singletonMap("feed", Collections.emptyList()));
+            }
+
+            // 4. Fetch those followed users from DB
+            List<User> followedUsers = userRepository.findAllById(followings);
+
+            // 5. Filter only admins
+            List<User> followedAdmins = followedUsers.stream()
+                    .filter(u -> "admin".equalsIgnoreCase(u.getRole()))
+                    .collect(Collectors.toList());
+
+            // 6. Collect *all* question IDs from these admins
+            Set<String> adminQuestionIds = new HashSet<>();
+            for (User admin : followedAdmins) {
+                if (admin.getQuestions() != null) {
+                    adminQuestionIds.addAll(admin.getQuestions());
+                }
+            }
+
+            // 7. Fetch those questions from DB
+            List<Question> allAdminQuestions = questionRepository.findAllById(adminQuestionIds);
+
+            // 8. Exclude any that the user already answered
+            Set<String> finalAnsweredIds = answeredIds;
+            List<Question> unansweredQuestions = allAdminQuestions.stream()
+                    .filter(q -> !finalAnsweredIds.contains(q.getId()))
+                    .collect(Collectors.toList());
+
+            // 9. Return the feed
+            return ResponseEntity.ok(Collections.singletonMap("feed", unansweredQuestions));
+
+        } catch (Exception e) {
+            System.err.println("Error fetching user feed: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Server error"));
+        }
+    }
+
+
+
 
 
 
